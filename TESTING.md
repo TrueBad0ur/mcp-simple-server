@@ -1,5 +1,41 @@
 # Testing the MCP Server in Cursor
 
+## Authentication Setup
+
+The MCP server requires API key authentication for security. Configure your environment:
+
+### Environment Variables
+
+```bash
+# Required: API key for authentication
+export MCP_API_KEY="your-secure-api-key-here"
+
+# Optional: TLS certificates for HTTPS
+export SSL_CERTFILE=/path/to/your/cert.pem
+export SSL_KEYFILE=/path/to/your/key.pem
+```
+
+### Testing HTTP Endpoints
+
+All requests must include the API key:
+
+```bash
+# Test health endpoint with authentication
+curl -H "X-API-Key: your-secure-api-key-here" http://<remote-server-ip>:8000/health
+
+# Test without API key (should fail with 401)
+curl http://<remote-server-ip>:8000/health
+
+# Test MCP tools endpoint
+curl -H "X-API-Key: your-secure-api-key-here" http://<remote-server-ip>:8000/mcp/tools
+
+# Test tool call
+curl -H "X-API-Key: your-secure-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"method": "tools/call", "params": {"name": "get_current_time", "arguments": {}}}' \
+  http://<remote-server-ip>:8000/mcp/call
+```
+
 ## Verification Steps
 
 ### 1. Check Connection Status

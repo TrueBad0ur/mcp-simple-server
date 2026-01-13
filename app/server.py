@@ -12,9 +12,10 @@ import os
 import sys
 import uuid
 from datetime import datetime, timezone
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 import uvicorn
 from mcp.server import Server
 from mcp.types import Tool, TextContent
@@ -28,6 +29,20 @@ server = Server("simple-utils-server")
 
 # Logging configuration
 LOG_FILE = "logs/requests_log.txt"
+
+# Authentication configuration
+API_KEY = os.getenv("MCP_API_KEY")
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+def verify_api_key(api_key: str = Depends(api_key_header)):
+    """Verify the API key from request headers."""
+    if API_KEY and api_key != API_KEY:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key"
+        )
+    return api_key
 
 def log_request(request_info: dict):
     """Log request information to a text file."""
@@ -603,7 +618,7 @@ app.add_middleware(
 
 
 @app.get("/")
-async def root(request: Request):
+async def root(request: Request, api_key: str = Depends(verify_api_key)):
     """Health check endpoint."""
     # Log the HTTP request
     log_http_request(request, "/")
@@ -611,7 +626,8 @@ async def root(request: Request):
     return {
         "status": "ok",
         "server": "simple-utils-server",
-        "message": "MCP Server is running"
+        "message": "MCP Server is running",
+        "authenticated": True
     }
 
 
@@ -622,7 +638,7 @@ async def oauth_discovery():
 
 
 @app.get("/health")
-async def health(request: Request):
+async def health(request: Request, api_key: str = Depends(verify_api_key)):
     """Health check endpoint."""
     # Log the HTTP request
     log_http_request(request, "/health")
@@ -631,7 +647,7 @@ async def health(request: Request):
 
 
 @app.post("/message")
-async def message_endpoint(request: Request):
+async def message_endpoint(request: Request, api_key: str = Depends(verify_api_key)):
     """Alternative endpoint for sending JSON-RPC messages."""
     # Log the HTTP request
     log_http_request(request, "/message")
@@ -640,7 +656,7 @@ async def message_endpoint(request: Request):
 
 
 @app.post("/mcp/call")
-async def mcp_call(request: Request):
+async def mcp_call(request: Request, api_key: str = Depends(verify_api_key)):
     """Handle MCP tool calls via HTTP POST (legacy endpoint)."""
     # Log the HTTP request
     log_http_request(request, "/mcp/call")
@@ -664,7 +680,7 @@ async def mcp_call(request: Request):
 
 
 @app.get("/mcp/tools")
-async def mcp_tools(request: Request):
+async def mcp_tools(request: Request, api_key: str = Depends(verify_api_key)):
     """List available MCP tools."""
     # Log the HTTP request
     log_http_request(request, "/mcp/tools")
@@ -687,7 +703,7 @@ active_connections: dict[str, asyncio.Queue] = {}
 
 
 @app.get("/sse")
-async def sse_endpoint(request: Request):
+async def sse_endpoint(request: Request, api_key: str = Depends(verify_api_key)):
     """SSE endpoint for MCP protocol - receives responses."""
     # Log the HTTP request
     log_http_request(request, "/sse", {"connection_type": "sse_get"})
@@ -745,7 +761,7 @@ async def sse_endpoint(request: Request):
 
 
 @app.post("/sse")
-async def sse_post_endpoint(request: Request):
+async def sse_post_endpoint(request: Request, api_key: str = Depends(verify_api_key)):
     """Handle JSON-RPC requests sent via POST to SSE endpoint."""
     try:
         body = await request.json()
@@ -946,4 +962,7 @@ async def sse_post_endpoint(request: Request):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    print(f"Starting HTTP server on port {port}")
+
+    uvicorn.run(app, host="0.0.0.0", port=port)

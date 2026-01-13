@@ -9,6 +9,8 @@ services:
       - "8000:8000"
     volumes:
       - ./logs:/app/logs
+    environment:
+      - MCP_API_KEY=your-secure-api-key-here
     networks:
       - mcp-network
 

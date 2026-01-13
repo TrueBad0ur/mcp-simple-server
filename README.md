@@ -40,7 +40,7 @@ A simple, self-contained MCP (Model Context Protocol) server with basic utility 
    docker compose logs -f mcp-server
    
    # Test health endpoint (replace <remote-server-ip> with your server IP)
-   curl http://<remote-server-ip>:8000/health
+   curl -H "X-API-Key: your-secure-api-key-here" http://<remote-server-ip>:8000/health
    ```
 
    You should see:
@@ -68,6 +68,7 @@ A simple, self-contained MCP (Model Context Protocol) server with basic utility 
      - Replace `<remote-server-ip>` with your actual server IP address
      - Example: `http://192.168.1.100:8000/sse` or `http://example.com:8000/sse`
    - **Transport**: `sse` or `SSE`
+   - **Headers**: Add `X-API-Key: your-secure-api-key-here`
 
    **Option B: Import from mcp.json**
    - Open the `mcp.json` file in this repository
@@ -80,7 +81,10 @@ A simple, self-contained MCP (Model Context Protocol) server with basic utility 
        "mcpServers": {
          "simple-utils-server": {
            "url": "http://<remote-server-ip>:8000/sse",
-           "transport": "sse"
+           "transport": "sse",
+           "headers": {
+             "X-API-Key": "your-secure-api-key-here"
+           }
          }
        }
      }
@@ -129,6 +133,24 @@ A simple, self-contained MCP (Model Context Protocol) server with basic utility 
   - Restart Cursor completely
   - Check MCP settings configuration is correct
   - Verify the URL includes `/sse` at the end
+
+## Security
+
+The MCP server requires API key authentication for all requests.
+
+### API Key Authentication
+
+Set the `MCP_API_KEY` environment variable:
+
+```bash
+export MCP_API_KEY="your-secure-api-key-here"
+```
+
+All requests must include the API key in the `X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: your-secure-api-key-here" http://your-server:8000/health
+```
 
 ## Quick Start (Summary)
 
