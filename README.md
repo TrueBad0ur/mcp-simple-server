@@ -12,7 +12,7 @@ A simple, self-contained MCP (Model Context Protocol) server with basic utility 
 - **Execute Shell Commands** - Run shell commands and get output
 - **Comprehensive Logging** - All requests logged to local file for monitoring
 
-## 📖 Complete Setup Guide
+## Complete Setup Guide
 
 ### Step 1: Start the Server
 
