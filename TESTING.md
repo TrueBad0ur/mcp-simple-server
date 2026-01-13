@@ -1,6 +1,6 @@
 # Testing the MCP Server in Cursor
 
-## ✅ Verification Steps
+## Verification Steps
 
 ### 1. Check Connection Status
 
@@ -9,6 +9,18 @@ In Cursor, you should see the MCP server status in the status bar or MCP panel. 
 - **Server**: `simple-utils-server`
 - **Tools**: Should show 6 tools loaded
 
+### 2. Verify Logging is Working
+
+After using any tool, check that requests are being logged:
+
+```bash
+# Check if log file exists and has content
+ls -la requests_log.txt
+tail -20 requests_log.txt
+```
+
+You should see detailed log entries for each request with client information, timestamps, and responses.
+
 ### 2. Verify Tools are Loaded
 
 The following tools should be available:
@@ -16,10 +28,10 @@ The following tools should be available:
 2. `get_current_date` - Get current date
 3. `calculate` - Mathematical calculations
 4. `get_timezone_info` - Timezone information
-5. `format_number` - Number formatting
+5. `generate_random_number` - Generate random numbers
 6. `execute_command` - Execute shell commands
 
-## 🧪 How to Test in Cursor
+## How to Test in Cursor
 
 ### Method 1: Ask the AI to Use the Tools
 
@@ -39,10 +51,11 @@ Simply ask Cursor's AI to use the tools! The AI can automatically call them. Try
 "Calculate 2^10"
 ```
 
-#### Test Number Formatting:
+#### Test Random Number Generation:
 ```
-"Format the number 1234.5678 with 3 decimal places"
-"Show me 1000000 in scientific notation"
+"Generate a random number between 1 and 100"
+"Give me 5 random numbers from 0 to 10"
+"Pick a random number between 100 and 200"
 ```
 
 #### Test Shell Commands:
@@ -67,7 +80,7 @@ If Cursor has a tools panel or command palette:
 3. You should see all 6 tools listed
 4. Click on a tool to test it
 
-## 📝 Example Test Scenarios
+## Example Test Scenarios
 
 ### Scenario 1: Get Current Time
 **Ask Cursor:**
@@ -112,18 +125,34 @@ The AI should call `get_current_date` with format `european` and return the date
 **Expected Response:**
 The AI should call `get_timezone_info` with timezone `Asia/Tokyo` and return timezone information.
 
-### Scenario 5: Format Number
+### Scenario 5: Generate Random Number
 **Ask Cursor:**
-> "Format 1234567.89 with 2 decimal places"
+> "Generate a random number between 1 and 100"
 
 **Expected Response:**
-The AI should call `format_number` and return:
+The AI should call `generate_random_number` and return:
 ```json
 {
-  "original": 1234567.89,
-  "formatted": "1234567.89",
-  "decimals": 2,
-  "scientific_notation": false
+  "random_number": 42.73,
+  "min_value": 1,
+  "max_value": 100,
+  "type": "single"
+}
+```
+
+### Scenario 6: Generate Multiple Random Numbers
+**Ask Cursor:**
+> "Give me 5 random numbers between 0 and 10"
+
+**Expected Response:**
+The AI should call `generate_random_number` with count=5 and return:
+```json
+{
+  "random_numbers": [2.45, 7.89, 1.23, 9.56, 4.78],
+  "count": 5,
+  "min_value": 0,
+  "max_value": 10,
+  "type": "multiple"
 }
 ```
 
@@ -143,9 +172,9 @@ The AI should call `execute_command` and return:
 }
 ```
 
-**Note:** ⚠️ Be careful with shell commands as they can execute arbitrary code on your server!
+**Note:** Be careful with shell commands as they can execute arbitrary code on your server!
 
-## 🔍 Debugging
+## Debugging
 
 ### Check Server Logs
 ```bash
@@ -177,9 +206,12 @@ curl http://<remote-server-ip>:8000/mcp/tools
 curl -X POST http://<remote-server-ip>:8000/mcp/call \
   -H "Content-Type: application/json" \
   -d '{"tool": "get_current_time", "arguments": {}}'
+
+# Check logs (on host machine)
+tail -20 logs/requests_log.txt
 ```
 
-## 🎯 Quick Test Checklist
+## Quick Test Checklist
 
 - [ ] Server is running (`docker compose ps`)
 - [ ] Connection shows as "Connected" in Cursor
@@ -188,17 +220,18 @@ curl -X POST http://<remote-server-ip>:8000/mcp/call \
 - [ ] Can ask AI to calculate math → works
 - [ ] Can ask AI to get date → works
 - [ ] Can ask AI about timezone → works
-- [ ] Can ask AI to format numbers → works
+- [ ] Can ask AI to generate random numbers → works
 - [ ] Can ask AI to run shell commands → works
+- [ ] Requests are being logged to logs/requests_log.txt → check with `tail logs/requests_log.txt`
 
-## 💡 Tips
+## Tips
 
 1. **Be specific**: Ask clearly what you want (e.g., "calculate 2+2" not just "math")
 2. **Check responses**: The AI should show tool results in the chat
 3. **Multiple tools**: You can ask for multiple operations in one request
 4. **Error handling**: If a tool fails, the AI should show an error message
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Tools not showing up?
 - Restart Cursor completely

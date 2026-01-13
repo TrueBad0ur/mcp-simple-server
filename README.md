@@ -4,12 +4,13 @@ A simple, self-contained MCP (Model Context Protocol) server with basic utility 
 
 ## Features
 
-- ✅ **Get Current Time** - UTC and local time
-- ✅ **Get Current Date** - Multiple date formats
-- ✅ **Calculate** - Basic mathematical operations
-- ✅ **Timezone Info** - Get timezone information
-- ✅ **Format Numbers** - Format numbers with various options
-- ✅ **Execute Shell Commands** - Run shell commands and get output
+- **Get Current Time** - UTC and local time
+- **Get Current Date** - Multiple date formats
+- **Calculate** - Basic mathematical operations
+- **Timezone Info** - Get timezone information
+- **Generate Random Numbers** - Generate random numbers in a range
+- **Execute Shell Commands** - Run shell commands and get output
+- **Comprehensive Logging** - All requests logged to local file for monitoring
 
 ## 📖 Complete Setup Guide
 
@@ -199,23 +200,30 @@ Get information about a timezone.
 }
 ```
 
-### 5. format_number
-Format a number with various options.
+### 5. generate_random_number
+Generate random numbers within a specified range.
 
 **Example:**
 ```json
 {
-  "tool": "format_number",
+  "tool": "generate_random_number",
   "arguments": {
-    "number": 1234.5678,
-    "decimals": 2,
-    "scientific": false
+    "min_value": 1,
+    "max_value": 100,
+    "count": 5
   }
 }
 ```
 
+**Parameters:**
+- `min_value` (optional): Minimum value (default: 1)
+- `max_value` (optional): Maximum value (default: 100)
+- `count` (optional): Number of random numbers to generate (default: 1, max: 100)
+
+**Returns:** Random number(s) with range information
+
 ### 6. execute_command
-Execute a shell command and return the output. **⚠️ WARNING: Use with caution as this can execute arbitrary commands.**
+Execute a shell command and return the output. **WARNING: Use with caution as this can execute arbitrary commands.**
 
 **Example:**
 ```json
@@ -279,7 +287,7 @@ sudo firewall-cmd --reload
 pip install -r requirements.txt
 
 # Run the server
-python http_server.py
+python server.py
 ```
 
 The server will be available at `http://<remote-server-ip>:8000`
@@ -288,8 +296,7 @@ The server will be available at `http://<remote-server-ip>:8000`
 
 ```
 mcp/
-├── server.py          # Stdio MCP server (for local use)
-├── http_server.py     # HTTP/SSE MCP server (for remote use)
+├── server.py          # HTTP/SSE MCP server (for remote use)
 ├── requirements.txt   # Python dependencies
 ├── Dockerfile         # Docker image definition
 ├── docker-compose.yml # Docker compose configuration
@@ -347,6 +354,45 @@ docker compose ps
 
 This server uses only:
 - Python standard library (datetime, math, json)
+- MCP SDK (for protocol)
+- FastAPI/Uvicorn (for HTTP server)
+
+## Logging
+
+The server automatically logs all requests to a local text file (`requests_log.txt`) with comprehensive information including:
+
+- **Client Information**: IP address, User-Agent, headers, etc.
+- **Request Details**: Tool called, arguments, timestamps
+- **Response Data**: Full response content, success/failure status
+- **Server Info**: Request ID, server version, processing time
+
+### Log File Format
+
+Each log entry includes:
+- Unique request ID
+- UTC timestamp
+- Complete request/response data in JSON format
+- Success/failure indicators
+
+### Viewing Logs
+
+```bash
+# View recent logs (on host machine)
+tail -f logs/requests_log.txt
+
+# Search for specific tool calls
+grep "tool_name" logs/requests_log.txt
+
+# Count total requests
+grep "REQUEST LOG ENTRY" logs/requests_log.txt | wc -l
+```
+
+**Note:** The log file is automatically persisted on the host machine in the `./logs/` directory using Docker volumes. This means logs survive container restarts and can be accessed even after the container is stopped. The logs contain sensitive information - monitor them for security and debugging purposes.
+
+## No External Dependencies!
+
+This server uses only:
+- Python standard library (datetime, math, json, random, os, sys, uuid)
 - MCP SDK (for protocol)
 - FastAPI/Uvicorn (for HTTP server)
 

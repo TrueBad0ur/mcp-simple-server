@@ -7,19 +7,103 @@ Allows remote connections via HTTP Server-Sent Events
 import asyncio
 import json
 import shlex
+import random
+import os
+import sys
+import uuid
+from datetime import datetime, timezone
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from mcp.server import Server
 from mcp.types import Tool, TextContent
-from datetime import datetime, timezone
 import math
 from typing import Any, Sequence
 
 
 # Create the MCP server instance
 server = Server("simple-utils-server")
+
+
+# Logging configuration
+LOG_FILE = "logs/requests_log.txt"
+
+def log_request(request_info: dict):
+    """Log request information to a text file."""
+    try:
+        # Ensure log directory exists
+        log_dir = os.path.dirname(LOG_FILE)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        # Generate unique request ID
+        request_id = str(uuid.uuid4())
+
+        # Format timestamp
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        # Build log entry
+        log_entry = f"""
+{'='*80}
+REQUEST LOG ENTRY - {request_id}
+Timestamp: {timestamp}
+{'='*80}
+
+REQUEST INFORMATION:
+{json.dumps(request_info, indent=2, default=str)}
+
+{'='*80}
+END OF ENTRY
+{'='*80}
+
+"""
+
+        # Append to log file
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_entry)
+
+    except Exception as e:
+        # If logging fails, print to stderr but don't break the main functionality
+        print(f"Logging error: {e}", file=sys.stderr)
+
+
+def log_http_request(request: Request, endpoint: str, additional_info: dict = None):
+    """Log HTTP request information."""
+    try:
+        request_info = {
+            "request_type": "http_request",
+            "endpoint": endpoint,
+            "method": request.method,
+            "url": str(request.url),
+            "client_info": {
+                "ip_address": request.client.host if hasattr(request, 'client') and request.client else None,
+                "port": request.client.port if hasattr(request, 'client') and request.client else None,
+                "user_agent": request.headers.get('user-agent'),
+                "accept": request.headers.get('accept'),
+                "content_type": request.headers.get('content-type'),
+                "host": request.headers.get('host'),
+                "connection": request.headers.get('connection'),
+                "referer": request.headers.get('referer'),
+                "origin": request.headers.get('origin'),
+                "x_forwarded_for": request.headers.get('x-forwarded-for'),
+                "x_real_ip": request.headers.get('x-real-ip'),
+            },
+            "server_info": {
+                "server_name": "simple-utils-server",
+                "server_version": "1.0.0",
+                "request_id": str(uuid.uuid4()),
+            },
+            "timestamp_start": datetime.now(timezone.utc).isoformat(),
+        }
+
+        if additional_info:
+            request_info.update(additional_info)
+
+        log_request(request_info)
+
+    except Exception as e:
+        print(f"HTTP logging error: {e}", file=sys.stderr)
 
 
 @server.list_tools()
@@ -81,27 +165,30 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="format_number",
-            description="Format a number with various options",
+            name="generate_random_number",
+            description="Generate a random number within a specified range",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "number": {
+                    "min_value": {
                         "type": "number",
-                        "description": "Number to format"
+                        "description": "Minimum value (inclusive)",
+                        "default": 1
                     },
-                    "decimals": {
+                    "max_value": {
+                        "type": "number",
+                        "description": "Maximum value (inclusive)",
+                        "default": 100
+                    },
+                    "count": {
                         "type": "integer",
-                        "description": "Number of decimal places",
-                        "default": 2
-                    },
-                    "scientific": {
-                        "type": "boolean",
-                        "description": "Use scientific notation",
-                        "default": False
+                        "description": "Number of random numbers to generate",
+                        "default": 1,
+                        "minimum": 1,
+                        "maximum": 100
                     }
                 },
-                "required": ["number"],
+                "required": [],
             },
         ),
         Tool(
@@ -132,9 +219,31 @@ async def list_tools() -> list[Tool]:
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextContent]:
+async def call_tool(name: str, arguments: dict[str, Any], request: Request = None) -> Sequence[TextContent]:
     """Handle tool calls."""
-    
+
+    # Prepare comprehensive logging information
+    log_info = {
+        "request_type": "tool_call",
+        "tool_name": name,
+        "arguments": arguments,
+            "client_info": {
+                "ip_address": request.client.host if request and hasattr(request, 'client') and request.client else None,
+                "port": request.client.port if request and hasattr(request, 'client') and request.client else None,
+                "user_agent": request.headers.get('user-agent') if request else None,
+                "accept": request.headers.get('accept') if request else None,
+                "content_type": request.headers.get('content-type') if request else None,
+                "host": request.headers.get('host') if request else None,
+                "connection": request.headers.get('connection') if request else None,
+            } if request else {},
+        "server_info": {
+            "server_name": "simple-utils-server",
+            "server_version": "1.0.0",
+            "request_id": str(uuid.uuid4()),
+        },
+        "timestamp_start": datetime.now(timezone.utc).isoformat(),
+    }
+
     if name == "get_current_time":
         now = datetime.now(timezone.utc)
         local_now = datetime.now()
@@ -145,7 +254,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
             "unix_timestamp": int(now.timestamp()),
             "iso_format": now.isoformat(),
         }
-        
+
+        # Log the response
+        log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+        log_info["response"] = result
+        log_info["success"] = True
+        log_request(log_info)
+
         return [TextContent(
             type="text",
             text=json.dumps(result, indent=2)
@@ -168,7 +283,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
             "day_of_week": now.strftime("%A"),
             "day_of_year": now.timetuple().tm_yday,
         }
-        
+
+        # Log the response
+        log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+        log_info["response"] = result
+        log_info["success"] = True
+        log_request(log_info)
+
         return [TextContent(
             type="text",
             text=json.dumps(result, indent=2)
@@ -207,18 +328,35 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
         
         try:
             result = eval(expression, {"__builtins__": {}}, safe_dict)
+            final_result = {
+                "expression": expression,
+                "result": result,
+                "type": type(result).__name__
+            }
+
+            # Log the response
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = final_result
+            log_info["success"] = True
+            log_request(log_info)
+
             return [TextContent(
                 type="text",
-                text=json.dumps({
-                    "expression": expression,
-                    "result": result,
-                    "type": type(result).__name__
-                }, indent=2)
+                text=json.dumps(final_result, indent=2)
             )]
         except Exception as e:
+            error_result = {"error": f"Calculation error: {str(e)}"}
+
+            # Log the error
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = error_result
+            log_info["success"] = False
+            log_info["error"] = str(e)
+            log_request(log_info)
+
             return [TextContent(
                 type="text",
-                text=json.dumps({"error": f"Calculation error: {str(e)}"}, indent=2)
+                text=json.dumps(error_result, indent=2)
             )]
     
     elif name == "get_timezone_info":
@@ -228,46 +366,108 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
             import zoneinfo
             tz = zoneinfo.ZoneInfo(timezone_name)
             now = datetime.now(tz)
-            
+
             result = {
                 "timezone": timezone_name,
                 "current_time": now.strftime("%Y-%m-%d %H:%M:%S %Z"),
                 "utc_offset": str(now.utcoffset()),
                 "is_dst": now.dst() is not None and now.dst().total_seconds() != 0,
             }
+            success = True
         except Exception as e:
             result = {
                 "timezone": timezone_name,
                 "error": f"Invalid timezone: {str(e)}",
                 "note": "Try 'UTC', 'America/New_York', 'Europe/London', etc."
             }
-        
+            success = False
+
+        # Log the response
+        log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+        log_info["response"] = result
+        log_info["success"] = success
+        if not success:
+            log_info["error"] = str(e)
+        log_request(log_info)
+
         return [TextContent(
             type="text",
             text=json.dumps(result, indent=2)
         )]
     
-    elif name == "format_number":
-        number = arguments.get("number")
-        decimals = arguments.get("decimals", 2)
-        scientific = arguments.get("scientific", False)
-        
-        if scientific:
-            formatted = f"{number:.{decimals}e}"
-        else:
-            formatted = f"{number:.{decimals}f}"
-        
-        result = {
-            "original": number,
-            "formatted": formatted,
-            "decimals": decimals,
-            "scientific_notation": scientific,
-        }
-        
-        return [TextContent(
-            type="text",
-            text=json.dumps(result, indent=2)
-        )]
+    elif name == "generate_random_number":
+        min_value = arguments.get("min_value", 1)
+        max_value = arguments.get("max_value", 100)
+        count = arguments.get("count", 1)
+
+        # Validate inputs
+        if not isinstance(min_value, (int, float)):
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": "min_value must be a number"}, indent=2)
+            )]
+        if not isinstance(max_value, (int, float)):
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": "max_value must be a number"}, indent=2)
+            )]
+        if min_value >= max_value:
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": "min_value must be less than max_value"}, indent=2)
+            )]
+        if not isinstance(count, int) or count < 1 or count > 100:
+            return [TextContent(
+                type="text",
+                text=json.dumps({"error": "count must be an integer between 1 and 100"}, indent=2)
+            )]
+
+        try:
+            if count == 1:
+                # Single random number
+                random_number = random.uniform(min_value, max_value)
+                result = {
+                    "random_number": random_number,
+                    "min_value": min_value,
+                    "max_value": max_value,
+                    "type": "single"
+                }
+            else:
+                # Multiple random numbers
+                random_numbers = [random.uniform(min_value, max_value) for _ in range(count)]
+                result = {
+                    "random_numbers": random_numbers,
+                    "count": count,
+                    "min_value": min_value,
+                    "max_value": max_value,
+                    "type": "multiple"
+                }
+
+            # Log the response
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = result
+            log_info["success"] = True
+            log_request(log_info)
+
+            return [TextContent(
+                type="text",
+                text=json.dumps(result, indent=2)
+            )]
+
+        except Exception as e:
+            error_result = {"error": f"Random number generation error: {str(e)}"}
+
+            # Log the error
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = error_result
+            log_info["success"] = False
+            log_info["error"] = str(e)
+            log_request(log_info)
+
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_result, indent=2)
+            )]
     
     elif name == "execute_command":
         command = arguments.get("command", "")
@@ -309,41 +509,83 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> Sequence[TextConten
                 "stderr": stderr.decode('utf-8', errors='replace') if stderr else "",
                 "success": process.returncode == 0,
             }
-            
+
+            # Log the response
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = result
+            log_info["success"] = result["success"]
+            log_request(log_info)
+
             return [TextContent(
                 type="text",
                 text=json.dumps(result, indent=2)
             )]
-        
-        except asyncio.TimeoutError:
+
+        except asyncio.TimeoutError as e:
+            error_result = {
+                "error": f"Command timed out after {timeout} seconds",
+                "command": command
+            }
+
+            # Log the timeout error
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = error_result
+            log_info["success"] = False
+            log_info["error"] = f"Timeout after {timeout}s"
+            log_request(log_info)
+
             return [TextContent(
                 type="text",
-                text=json.dumps({
-                    "error": f"Command timed out after {timeout} seconds",
-                    "command": command
-                }, indent=2)
+                text=json.dumps(error_result, indent=2)
             )]
-        except FileNotFoundError:
+        except FileNotFoundError as e:
+            error_result = {
+                "error": f"Command not found: {command.split()[0] if command.split() else command}",
+                "command": command
+            }
+
+            # Log the command not found error
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = error_result
+            log_info["success"] = False
+            log_info["error"] = f"Command not found: {command.split()[0] if command.split() else command}"
+            log_request(log_info)
+
             return [TextContent(
                 type="text",
-                text=json.dumps({
-                    "error": f"Command not found: {command.split()[0] if command.split() else command}",
-                    "command": command
-                }, indent=2)
+                text=json.dumps(error_result, indent=2)
             )]
         except Exception as e:
+            error_result = {
+                "error": f"Execution error: {str(e)}",
+                "command": command
+            }
+
+            # Log the execution error
+            log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+            log_info["response"] = error_result
+            log_info["success"] = False
+            log_info["error"] = str(e)
+            log_request(log_info)
+
             return [TextContent(
                 type="text",
-                text=json.dumps({
-                    "error": f"Execution error: {str(e)}",
-                    "command": command
-                }, indent=2)
+                text=json.dumps(error_result, indent=2)
             )]
     
     else:
+        error_result = {"error": f"Unknown tool: {name}"}
+
+        # Log the unknown tool error
+        log_info["timestamp_end"] = datetime.now(timezone.utc).isoformat()
+        log_info["response"] = error_result
+        log_info["success"] = False
+        log_info["error"] = f"Unknown tool: {name}"
+        log_request(log_info)
+
         return [TextContent(
             type="text",
-            text=json.dumps({"error": f"Unknown tool: {name}"}, indent=2)
+            text=json.dumps(error_result, indent=2)
         )]
 
 
@@ -361,8 +603,11 @@ app.add_middleware(
 
 
 @app.get("/")
-async def root():
+async def root(request: Request):
     """Health check endpoint."""
+    # Log the HTTP request
+    log_http_request(request, "/")
+
     return {
         "status": "ok",
         "server": "simple-utils-server",
@@ -377,28 +622,37 @@ async def oauth_discovery():
 
 
 @app.get("/health")
-async def health():
+async def health(request: Request):
     """Health check endpoint."""
+    # Log the HTTP request
+    log_http_request(request, "/health")
+
     return {"status": "healthy"}
 
 
 @app.post("/message")
 async def message_endpoint(request: Request):
     """Alternative endpoint for sending JSON-RPC messages."""
+    # Log the HTTP request
+    log_http_request(request, "/message")
+
     return await sse_post_endpoint(request)
 
 
 @app.post("/mcp/call")
 async def mcp_call(request: Request):
     """Handle MCP tool calls via HTTP POST (legacy endpoint)."""
+    # Log the HTTP request
+    log_http_request(request, "/mcp/call")
+
     try:
         body = await request.json()
         tool_name = body.get("tool")
         arguments = body.get("arguments", {})
-        
+
         # Call the tool
-        result = await call_tool(tool_name, arguments)
-        
+        result = await call_tool(tool_name, arguments, request)
+
         # Extract text content
         if result and len(result) > 0:
             response_text = result[0].text if hasattr(result[0], 'text') else str(result[0])
@@ -410,8 +664,11 @@ async def mcp_call(request: Request):
 
 
 @app.get("/mcp/tools")
-async def mcp_tools():
+async def mcp_tools(request: Request):
     """List available MCP tools."""
+    # Log the HTTP request
+    log_http_request(request, "/mcp/tools")
+
     tools = await list_tools()
     return JSONResponse(content={
         "tools": [
@@ -432,12 +689,15 @@ active_connections: dict[str, asyncio.Queue] = {}
 @app.get("/sse")
 async def sse_endpoint(request: Request):
     """SSE endpoint for MCP protocol - receives responses."""
+    # Log the HTTP request
+    log_http_request(request, "/sse", {"connection_type": "sse_get"})
+
     connection_id = request.headers.get("X-Connection-ID", "default")
-    
+
     # Create a queue for this connection
     if connection_id not in active_connections:
         active_connections[connection_id] = asyncio.Queue()
-    
+
     queue = active_connections[connection_id]
     
     async def event_stream():
@@ -489,6 +749,16 @@ async def sse_post_endpoint(request: Request):
     """Handle JSON-RPC requests sent via POST to SSE endpoint."""
     try:
         body = await request.json()
+
+        # Log the HTTP request with JSON-RPC details
+        json_rpc_info = {
+            "jsonrpc_version": body.get("jsonrpc"),
+            "jsonrpc_method": body.get("method"),
+            "jsonrpc_id": body.get("id"),
+            "connection_type": "sse_post"
+        }
+        log_http_request(request, "/sse", json_rpc_info)
+
         connection_id = request.headers.get("X-Connection-ID", "default")
         request_id = body.get("id")
         
@@ -601,8 +871,8 @@ async def sse_post_endpoint(request: Request):
             # Call a tool
             tool_name = params.get("name")
             arguments = params.get("arguments", {})
-            
-            result = await call_tool(tool_name, arguments)
+
+            result = await call_tool(tool_name, arguments, request)
             
             # Extract text content
             if result and len(result) > 0:

@@ -7,13 +7,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the server code
-COPY http_server.py .
+COPY server.py .
 
 # Make server executable
-RUN chmod +x http_server.py
+RUN chmod +x server.py
 
 # Expose port
 EXPOSE 8000
 
 # Run the HTTP MCP server
-CMD ["python", "http_server.py"]
+CMD ["python", "server.py"]
