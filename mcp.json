@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "simple-utils-server": {
+      "url": "http://<remote-server-ip>:8000/sse",
+      "transport": "sse"
+    }
+  }
+}

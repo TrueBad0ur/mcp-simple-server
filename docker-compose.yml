@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build: .
+    container_name: simple-mcp-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
