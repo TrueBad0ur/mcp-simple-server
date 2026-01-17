@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mcp-server:
-    build: .
+    build: ./app
     container_name: simple-mcp-server
     restart: unless-stopped
     ports:

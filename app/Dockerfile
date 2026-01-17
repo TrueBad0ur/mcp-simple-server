@@ -6,11 +6,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the server code
-COPY server.py .
+# Copy the entire application package
+COPY . .
 
-# Make server executable
-RUN chmod +x server.py
+# Make sure all Python files are accessible
+RUN find . -name "*.py" -exec chmod +r {} \;
 
 # Expose port
 EXPOSE 8000

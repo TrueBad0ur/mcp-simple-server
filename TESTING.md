@@ -71,35 +71,98 @@ The following tools should be available:
 
 ### Method 1: Ask the AI to Use the Tools
 
-Simply ask Cursor's AI to use the tools! The AI can automatically call them. Try these prompts:
+Simply ask Cursor's AI to use the tools! The AI can automatically call them. Copy-paste these commands directly into Cursor chat:
 
-#### Test Time Tools:
+#### Time & Date Tools:
 ```
-"What time is it right now?"
-"Get the current date in US format"
-"What's the time in New York?"
-```
-
-#### Test Calculator:
-```
-"Calculate sqrt(144) + 5 * 3"
-"What's sin(pi/2) + cos(0)?"
-"Calculate 2^10"
+What time is it right now?
+Get the current date in US format
+What's the time in Tokyo right now?
+What's today's date in European format?
 ```
 
-#### Test Random Number Generation:
+#### Calculator Tool:
 ```
-"Generate a random number between 1 and 100"
-"Give me 5 random numbers from 0 to 10"
-"Pick a random number between 100 and 200"
+Calculate sqrt(144) + 5 * 3
+What's sin(pi/2) + cos(0)?
+Calculate 2^10
+Solve for x: 2*x + 5 = 17
 ```
 
-#### Test Shell Commands:
+#### Random Number Generator:
 ```
-"Run the command 'ls -la'"
-"Execute 'echo hello world'"
-"Run 'python --version'"
-"Execute 'pwd' to show current directory"
+Generate a random number between 1 and 100
+Give me 5 random numbers from 0 to 10
+Pick a random number between 100 and 200
+Generate 10 random integers between -50 and 50
+```
+
+#### Shell Command Tools:
+```
+Run the command 'ls -la'
+Execute 'echo hello world'
+Run 'python --version'
+Execute 'pwd' to show current directory
+Run 'date' to show system time
+Execute 'whoami' to show current user
+```
+
+#### Edge Cases & Error Testing:
+```
+Calculate 1/0 (should handle division by zero gracefully)
+Generate 0 random numbers (should show error)
+Generate 101 random numbers (should exceed limit)
+Run the command 'nonexistent_command' (should handle command not found)
+```
+
+#### Complex Multi-Tool Requests:
+```
+What's the current time, and can you calculate the square root of 256?
+Generate 3 random numbers between 1 and 10, and tell me what time it is in London
+Calculate 2^8 and also run the command 'echo "test"'
+```
+
+### Complete Test Command List
+
+**Copy and paste these commands one by one into Cursor chat:**
+
+```bash
+# Time & Date Tests
+What time is it right now?
+Get the current date in US format
+What's the time in Tokyo right now?
+What's today's date in European format?
+
+# Calculator Tests
+Calculate sqrt(144) + 5 * 3
+What's sin(pi/2) + cos(0)?
+Calculate 2^10
+Solve for x: 2*x + 5 = 17
+
+# Random Number Tests
+Generate a random number between 1 and 100
+Give me 5 random numbers from 0 to 10
+Pick a random number between 100 and 200
+Generate 10 random integers between -50 and 50
+
+# Shell Command Tests
+Run the command 'ls -la'
+Execute 'echo hello world'
+Run 'python --version'
+Execute 'pwd' to show current directory
+Run 'date' to show system time
+Execute 'whoami' to show current user
+
+# Error Testing
+Calculate 1/0 (should handle division by zero gracefully)
+Generate 0 random numbers (should show error)
+Generate 101 random numbers (should exceed limit)
+Run the command 'nonexistent_command' (should handle command not found)
+
+# Multi-Tool Tests
+What's the current time, and can you calculate the square root of 256?
+Generate 3 random numbers between 1 and 10, and tell me what time it is in London
+Calculate 2^8 and also run the command 'echo "test"'
 ```
 
 ### Method 2: Direct Tool Invocation
@@ -249,16 +312,25 @@ tail -20 logs/requests_log.txt
 
 ## Quick Test Checklist
 
+### Basic Connectivity:
 - [ ] Server is running (`docker compose ps`)
 - [ ] Connection shows as "Connected" in Cursor
 - [ ] All 6 tools are visible/loaded
-- [ ] Can ask AI to get current time → works
-- [ ] Can ask AI to calculate math → works
-- [ ] Can ask AI to get date → works
-- [ ] Can ask AI about timezone → works
-- [ ] Can ask AI to generate random numbers → works
-- [ ] Can ask AI to run shell commands → works
-- [ ] Requests are being logged to logs/requests_log.txt → check with `tail logs/requests_log.txt`
+- [ ] Requests are being logged to logs/requests_log.txt
+
+### Tool Functionality:
+- [ ] **Time**: `What time is it right now?` - returns current UTC/local time
+- [ ] **Date**: `Get the current date in US format` - returns formatted date
+- [ ] **Timezone**: `What's the time in Tokyo right now?` - returns Tokyo time info
+- [ ] **Calculator**: `Calculate sqrt(16) * 4` - returns 16.0
+- [ ] **Random**: `Generate 2 random numbers between 1 and 6` - returns array of numbers
+- [ ] **Shell**: `Run 'echo "test"'` - returns command output
+
+### Advanced Testing:
+- [ ] **Multi-tool**: `What's the time and calculate 10 + 20?` - handles multiple tools
+- [ ] **Error handling**: `Calculate 1/0` - shows appropriate error message
+- [ ] **Edge cases**: `Generate 101 random numbers` - respects limits
+- [ ] **Complex math**: `Solve for x: 2*x + 5 = 17` - handles equations
 
 ## Tips
 
@@ -266,6 +338,10 @@ tail -20 logs/requests_log.txt
 2. **Check responses**: The AI should show tool results in the chat
 3. **Multiple tools**: You can ask for multiple operations in one request
 4. **Error handling**: If a tool fails, the AI should show an error message
+5. **Test systematically**: Use the Complete Test Command List to test everything
+6. **Check logs**: Verify requests are logged in `logs/requests_log.txt`
+7. **Shell commands**: Be careful with shell commands - they execute on your server
+8. **Complex queries**: Try combining multiple tools in one request for advanced testing
 
 ## Troubleshooting
 
